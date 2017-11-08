@@ -1,0 +1,9 @@
+actionid: py36
+msg: getenv
+cmdargs: ['/Users/leahvelleman/.virtualenvs/morpho/bin/python', '-m', 'virtualenv', '--python', '/opt/local/bin/python3.6', 'py36']
+
+Using base prefix '/opt/local/Library/Frameworks/Python.framework/Versions/3.6'
+New python executable in /Users/leahvelleman/src/morpho/.tox/py36/bin/python3.6
+Also creating executable in /Users/leahvelleman/src/morpho/.tox/py36/bin/python
+Installing setuptools, pip, wheel...done.
+Running virtualenv with interpreter /opt/local/bin/python3.6

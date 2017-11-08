@@ -1,0 +1,16 @@
+Metadata-Version: 1.0
+Name: morpho
+Version: 0.0
+Summary: UNKNOWN
+Home-page: http://github.com/leahvelleman/morpho/
+Author: Leah Grace Velleman
+Author-email: leahvelleman@gmail.com
+License: Apache Software License
+Description: Morpho
+        ======
+        
+        Tools for developing finite state morphological models in Python.
+        
+        Requires Foma, for which precompiled binaries can be found at https://fomafst.github.io/.
+        
+Platform: any

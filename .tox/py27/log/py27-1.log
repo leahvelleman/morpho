@@ -1,0 +1,19 @@
+actionid: py27
+msg: getenv
+cmdargs: ['/Users/leahvelleman/src/morpho/.tox/py27/bin/pip', 'install', 'pytest', 'hypothesis']
+
+Collecting pytest
+  Using cached pytest-3.2.3-py2.py3-none-any.whl
+Collecting hypothesis
+  Using cached hypothesis-3.36.0-py2-none-any.whl
+Collecting py>=1.4.33 (from pytest)
+  Using cached py-1.4.34-py2.py3-none-any.whl
+Requirement already satisfied: setuptools in ./.tox/py27/lib/python2.7/site-packages (from pytest)
+Collecting enum34; python_version == "2.7" (from hypothesis)
+  Using cached enum34-1.1.6-py2-none-any.whl
+Collecting coverage (from hypothesis)
+  Using cached coverage-4.4.2-cp27-cp27m-macosx_10_12_x86_64.whl
+Collecting attrs (from hypothesis)
+  Using cached attrs-17.2.0-py2.py3-none-any.whl
+Installing collected packages: py, pytest, enum34, coverage, attrs, hypothesis
+Successfully installed attrs-17.2.0 coverage-4.4.2 enum34-1.1.6 hypothesis-3.36.0 py-1.4.34 pytest-3.2.3

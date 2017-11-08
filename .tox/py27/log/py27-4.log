@@ -1,0 +1,15 @@
+actionid: py27
+msg: installpkg
+cmdargs: ['/Users/leahvelleman/src/morpho/.tox/py27/bin/pip', 'install', '-U', '--no-deps', '/Users/leahvelleman/src/morpho/.tox/dist/morpho-0.0.zip']
+
+Processing ./.tox/dist/morpho-0.0.zip
+Building wheels for collected packages: morpho
+  Running setup.py bdist_wheel for morpho: started
+  Running setup.py bdist_wheel for morpho: finished with status 'done'
+  Stored in directory: /Users/leahvelleman/Library/Caches/pip/wheels/63/4b/b7/838f9bc4b1ddf5abb9989e8ca5883157988eafbbf0f0ce2f73
+Successfully built morpho
+Installing collected packages: morpho
+  Found existing installation: morpho 0.0
+    Uninstalling morpho-0.0:
+      Successfully uninstalled morpho-0.0
+Successfully installed morpho-0.0

@@ -1,0 +1,10 @@
+actionid: py36
+msg: envreport
+cmdargs: ['/Users/leahvelleman/src/morpho/.tox/py36/bin/pip', 'freeze']
+
+attrs==17.2.0
+coverage==4.4.2
+hypothesis==3.36.0
+morpho==0.0
+py==1.4.34
+pytest==3.2.3

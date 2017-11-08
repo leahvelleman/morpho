@@ -1,0 +1,12 @@
+actionid: py26
+msg: envreport
+cmdargs: ['/Users/leahvelleman/src/morpho/.tox/py26/bin/pip', 'freeze']
+
+DEPRECATION: Python 2.6 is no longer supported by the Python core team, please upgrade your Python. A future version of pip will drop support for Python 2.6
+argparse==1.4.0
+enum34==1.1.6
+hypothesis==3.8.3
+morpho==0.0
+ordereddict==1.1
+py==1.4.34
+pytest==3.2.3
