@@ -1,8 +1,0 @@
-actionid: py26
-msg: getenv
-cmdargs: ['/Users/leahvelleman/.virtualenvs/morpho/bin/python', '-m', 'virtualenv', '--python', '/usr/bin/python2.6', 'py26']
-
-New python executable in /Users/leahvelleman/src/morpho/.tox/py26/bin/python2.6
-Also creating executable in /Users/leahvelleman/src/morpho/.tox/py26/bin/python
-Installing setuptools, pip, wheel...done.
-Running virtualenv with interpreter /usr/bin/python2.6
