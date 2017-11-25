@@ -2,6 +2,8 @@ import six
 import re
 from itertools import chain, repeat
 import pynini
+from .wrappers import FSM, SIGMA
+
 
 class Item(object):
     def __init__(self, other=None, **kwargs):
@@ -11,10 +13,11 @@ class Item(object):
                 self._fsm = other._fsm
             else:
                 self._encode_kwargs(form=other)
-                self._fsm = pynini.acceptor(self._encoded, token_type="utf8")
+                self._fsm = FSM(self._encoded)
         else:
             self._encode_kwargs(**kwargs)
-            self._fsm = pynini.acceptor(self._encoded, token_type="utf8")
+            self._fsm = FSM(self._encoded)
+        print(self._fsm)
 
     def _encode_kwargs(self, **kwargs):
         form = kwargs.get("form", None)
@@ -58,31 +61,26 @@ class Item(object):
                 sigma |= {pynini_decode(osyms.find(arc.olabel))}
         return pynini.string_map(s for s in sigma if "\x00" not in s)
 
-    def morphemes(self):
-        asString = self._morphemes()._decode()
-        print(asString)
-        asIter = iter(re.split("{([^{}]*)}", asString))
-        asPairs = list(zip(asIter, asIter))
-        return asPairs
+    @property
+    def form(self):
+        print(self.morphemeFSM)
+        return next(self.formFSM.keys())
 
-    def _morphemes(self):
-        morphemeGetter = (pynini.transducer(self.sigma, "").star +
-                            pynini.transducer("#", "") +
-                            self.sigma.star)
-        composed = pynini.compose(self._fsm, morphemeGetter)
-        return Item(_fsm = composed.project(True))
+    morphemeGetter = (FSM(SIGMA).cross("").star() +
+                        FSM("#").cross("") +
+                        FSM(SIGMA).star())
 
-    def _decode(self):
-        paths = self._fsm.paths(input_token_type="symbol")
-        path = next(paths)[0]
-        return pynini_decode(path)
+    formGetter = (~(FSM("{") | FSM("}")).star())
 
-    def __getattr__(self, attr):
-        features = self.features()
-        if attr in features:
-            return features[attr]
-        else:
-            raise AttributeError("Item has no feature " + attr)
+    @property
+    def morphemeFSM(self):
+        return (self._fsm @ Item.morphemeGetter).project(side="bottom")
+
+    @property
+    def formFSM(self):
+        return (self._fsm @ 
+                Item.morphemeGetter @ 
+                Item.formGetter.star()).project(side="bottom")
 
     def __add__(self, other):
         cls = type(self)
@@ -105,61 +103,5 @@ class Class(object):
 
 
 
-
-
-
-
-
-
-def morpho_decode(inputBytes):
-    asString = pynini_decode(inputBytes)
-    features, rest = asString.split("#")
-    features=features.strip("[]").split("][")
-    if features[-1] == "":
-        features.pop()
-    features = dict((f.split("=")[0], f.split("=")[1]) for f in features)
-    restSplit = re.split("{([^{}]*)}", rest)
-    segmentation = restSplit[::2]
-    if segmentation[-1] == "":
-        segmentation.pop()
-    glosses = restSplit[1::2]
-    return features, segmentation, glosses
-
-def pynini_decode(inputBytes):
-    """ Pynini often outputs bytestrings with unprintable characters
-    represented in an unusual way. Run them through this to get plain unicode.
-    """
-    asString = inputBytes.decode("utf8")
-    asTokens = (from_att_symbol(symbol) for symbol in asString.split(' '))
-    return "".join(asTokens)
-
-def from_att_symbol(string):
-    """ OpenFST outputs symbol table representations in an awkward
-    format. Attempt to deal with that gracefully. """
-    # pylint: disable=too-many-return-statements
-    if string.startswith("<0"):
-        return six.unichr(int(string.strip('<>'), 16))
-    if string.startswith("<") and string.endswith(">"):
-        return {
-            "NUL": chr(0),  "":    chr(0),  "epsilon": chr(0),
-            "SOH": chr(1),  "STX": chr(2),  "ETX": chr(3),  "EOT": chr(4),
-            "ENQ": chr(5),  "ACK": chr(6),  "BEL": chr(7),  "BS":  chr(8),
-            "HT":  chr(9),  "LF":  chr(10), "VT":  chr(11), "FF":  chr(12),
-            "CR":  chr(13), "SO":  chr(14), "SI":  chr(15), "DLE": chr(16),
-            "DC1": chr(17), "DC2": chr(18), "DC3": chr(19), "DC4": chr(20),
-            "NAK": chr(21), "SYN": chr(22), "ETB": chr(23), "CAN": chr(24),
-            "EM":  chr(25), "SUB": chr(26), "ESC": chr(27), "FS":  chr(28),
-            "GS":  chr(29), "RS":  chr(30), "US":  chr(31), "SPACE": chr(32),
-            "DEL": chr(127)
-        }[string.strip('<>')]
-    if len(string) > 1:
-        return "[" + string + "]"
-    if string == "[":
-        return "\\["
-    if string == "]":
-        return "\\]"
-    if string == "\\":
-        return "\\"
-    return string
 
 

@@ -6,22 +6,23 @@
 from hypothesis import given, assume
 from hypothesis.strategies import lists, text, characters, dictionaries
 from morpho.morpho import *
+from morpho.wrappers import SIGMA
 
-validtext = text(min_size=1, alphabet=characters(max_codepoint=767,
-    blacklist_characters=[u"[", u"]", u"\x00", u"{", u"}", u"#", u",", u"=", u" "]))
-validlists = lists(validtext, min_size=1)
-validdicts = dictionaries(keys=validtext, values=validtext)
+validtext = lambda: text(min_size = 1, 
+        alphabet=SIGMA)
+validlists = lists(validtext(), min_size=1)
+validdicts = dictionaries(keys=validtext(), values=validtext())
 # stop short of combining accents
 
-#@given(validtext)
-#def test_form_constructor_and_encoded(form):
-#    I = Item(form=form)
-#    assert I._encoded == "#" + form
-#
-#@given(validtext)
-#def test_form_constructor_and_method(form):
-#    I = Item(form=form)
-#    assert I.form() == form
+@given(validtext())
+def test_form_constructor_and_encoded(form):
+    I = Item(form=form)
+    assert I._encoded == "#" + form
+
+@given(validtext())
+def test_form_constructor_and_method(form):
+    I = Item(form=form)
+    assert I.form == form
 #
 #@given(validlists)
 #def test_segmentation_constructor_and_encoded(segmentation):
@@ -46,15 +47,15 @@ validdicts = dictionaries(keys=validtext, values=validtext)
 #    assert I.segmentation() == segmentation
 #    assert I.features() == features
 #
-@given(validlists, validlists)
-def test_segmentation_and_gloss_constructor_and_method(segmentation, glosses):
-    assume(len(segmentation) >= len(glosses))
-    I = Item(segmentation=segmentation, glosses=glosses)
-    paddedglosses = glosses + [""] * (len(segmentation)-len(glosses))
-#    assert I.segmentation() == segmentation
-#    assert I.glosses() == paddedglosses
-    assert I.morphemes() == list(zip(segmentation, paddedglosses))
-#
+#@given(validlists, validlists)
+#def test_segmentation_and_gloss_constructor_and_method(segmentation, glosses):
+#    assume(len(segmentation) >= len(glosses))
+#    I = Item(segmentation=segmentation, glosses=glosses)
+#    paddedglosses = glosses + [""] * (len(segmentation)-len(glosses))
+##    assert I.segmentation() == segmentation
+##    assert I.glosses() == paddedglosses
+#    assert I.morphemes() == list(zip(segmentation, paddedglosses))
+##
 #@given(validlists, validlists, validlists, validlists)
 #def test_plus_behavior_with_segmentation_and_glosses(Aseg, Bseg, Agl, Bgl):
 #    assume(len(Aseg) >= len(Agl))

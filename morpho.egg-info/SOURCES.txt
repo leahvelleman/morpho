@@ -8,6 +8,3 @@ morpho.egg-info/PKG-INFO
 morpho.egg-info/SOURCES.txt
 morpho.egg-info/dependency_links.txt
 morpho.egg-info/top_level.txt
-test/test_class.py
-test/test_form.py
-test/test_wrappers.py

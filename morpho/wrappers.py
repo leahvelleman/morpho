@@ -20,7 +20,7 @@ def _constructiveOp(op):
         return cls(accum)
     return innerFunction
 
-class PyniniWrapper(object):
+class FSM(object):
     def __init__(self, arg, **kwargs):
         if isinstance(arg, pynini.Fst):
             self.fsm = arg
@@ -29,10 +29,14 @@ class PyniniWrapper(object):
         else:
             if isinstance(arg, collections.Mapping):
                 pairs = arg.items()
-            else:
+            elif isinstance(arg, six.string_types):
+                pairs = [(arg, arg)]
+            elif isinstance(arg, collections.Iterable):
                 pairs = [a if isinstance(a, tuple) and len(a) == 2 
-                           else (a,a) 
+                           else (a, a) 
                            for a in arg]
+            else:
+                raise ValueError
             cls = type(self)
             pairs = chain(pairs, kwargs.items())
             self.fsm = pynini.string_map(
@@ -50,15 +54,6 @@ class PyniniWrapper(object):
     @classmethod
     def fromFilename(cls, filename):
         fsm = pynini.Fst.read(filename)
-        return cls(fsm)
-
-    @classmethod
-    def transducer(cls, fsm1, fsm2):
-        if not isinstance(fsm1, cls):
-            fsm1 = PyniniWrapper.fromItem(fsm1)
-        if not isinstance(fsm2, PyniniWrapper):
-            fsm2 = PyniniWrapper.fromItem(fsm2)
-        fsm = pynini.transducer(fsm1.fsm, fsm2.fsm)
         return cls(fsm)
 
     def __eq__(self, other):
@@ -233,7 +228,9 @@ class PyniniWrapper(object):
 
     def cross(self, other):
         cls = type(self)
-        return cls(pynini.transducer(self.fsm, other.fsm))
+        if hasattr(other, "fsm"):
+            other = other.fsm
+        return cls(pynini.transducer(self.fsm, other))
 
     def star(self):
         cls = type(self)
@@ -242,6 +239,10 @@ class PyniniWrapper(object):
     def plus(self):
         cls = type(self)
         return cls(pynini.closure(self.fsm, 1).optimize()) #TEST THIS
+
+    def ques(self):
+        cls = type(self)
+        return cls(pynini.closure(self.fsm, 0, 1).optimize())
 
     def sigma(self):
         sigma = set()
@@ -269,7 +270,7 @@ class PyniniWrapper(object):
         return cls(fsm)
 
     def query(self, querySet):
-        return (PyniniWrapper(querySet) @ self).valueset()
+        return (FSM(querySet) @ self).valueset()
 
     def keys(self):
         return self.pathIterator(side="top")
@@ -279,7 +280,7 @@ class PyniniWrapper(object):
         Return the keys in the current instance as an :class:`fsa` rather than
         an iterator.
         """
-        return PyniniWrapper(self.project(side="top"))
+        return FSM(self.project(side="top"))
 
     def values(self):
         return self.pathIterator(side="bottom")
@@ -289,7 +290,7 @@ class PyniniWrapper(object):
         Return the values in the current instance as an :class:`fsa` rather than
         an iterator.
         """
-        return PyniniWrapper(self.project(side="bottom"))
+        return FSM(self.project(side="bottom"))
 
     def items(self):
         return self.pathIterator(side="both")
