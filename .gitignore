@@ -1,2 +1,6 @@
 .tox
-
+.cache
+.eggs
+.hypothesis
+*.pyc
+__pycache__
