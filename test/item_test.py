@@ -22,18 +22,18 @@ def test_form_constructor_and_encoded(form):
 def test_form_constructor_and_method(form):
     I = Item(form=form)
     assert I.form == form
-#
-#@given(validlists)
-#def test_segmentation_constructor_and_encoded(segmentation):
-#    I = Item(segmentation=segmentation)
-#    items = [s+"{}" for s in segmentation]
-#    assert I._encoded == "#" + ''.join(items)
-#
-#@given(validlists)
-#def test_segmentation_constructor_and_method(segmentation):
-#    I = Item(segmentation=segmentation)
-#    assert I.segmentation() == segmentation
-#
+
+@given(validlists())
+def test_segmentation_constructor_and_encoded(segmentation):
+    I = Item(segmentation=segmentation)
+    items = [s+"{}" for s in segmentation]
+    assert I._encoded == "#" + ''.join(items)
+
+@given(validlists())
+def test_segmentation_constructor_and_method(segmentation):
+    I = Item(segmentation=segmentation)
+    assert I.segmentation == segmentation
+
 
 @given(validtext(), validdicts())
 def test_form_and_features_constructor_and_method(form, features):

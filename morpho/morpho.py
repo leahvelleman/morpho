@@ -63,8 +63,15 @@ class Item(object):
 
     @property
     def form(self):
-        print(self.morphemeFSM)
         return next(self.formFSM.keys())
+
+    @property
+    def segmentation(self):
+        asString = self.form
+        asList = re.split("{[^{}]*}", asString)
+        if asList[-1] == "":
+            asList.pop()
+        return asList
 
     @property
     def features(self):
