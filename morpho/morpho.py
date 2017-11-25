@@ -46,7 +46,7 @@ class Item(object):
     def _encode_features(self, features):
         if features:
             featuresEncoded = ''.join(
-                    "[" + key + "=" + features[key] + "]"
+                    "{" + key + "=" + features[key] + "}"
                     for key in sorted(features))
             self._encoded = featuresEncoded + self._encoded
 
@@ -66,15 +66,34 @@ class Item(object):
         print(self.morphemeFSM)
         return next(self.formFSM.keys())
 
+    @property
+    def features(self):
+        asString = next(self.featureFSM.keys())
+        asList = asString.strip("{}").split("}{")
+        d = {}
+        for item in asList:
+            if "=" in item:
+                k, v = item.split("=")
+                d[k] = v
+        return d
+
     morphemeGetter = (FSM(SIGMA).cross("").star() +
                         FSM("#").cross("") +
                         FSM(SIGMA).star())
+
+    featureGetter = (FSM(SIGMA).star() +
+                        FSM("#").cross("") +
+                        FSM(SIGMA).cross("").star())
 
     formGetter = (~(FSM("{") | FSM("}")).star())
 
     @property
     def morphemeFSM(self):
         return (self._fsm @ Item.morphemeGetter).project(side="bottom")
+    
+    @property
+    def featureFSM(self):
+        return (self._fsm @ Item.featureGetter).project(side="bottom")
 
     @property
     def formFSM(self):

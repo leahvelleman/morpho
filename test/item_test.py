@@ -8,10 +8,9 @@ from hypothesis.strategies import lists, text, characters, dictionaries
 from morpho.morpho import *
 from morpho.wrappers import SIGMA
 
-validtext = lambda: text(min_size = 1, 
-        alphabet=SIGMA)
-validlists = lists(validtext(), min_size=1)
-validdicts = dictionaries(keys=validtext(), values=validtext())
+validtext = lambda: text(min_size = 1, alphabet=set(SIGMA)-set("=,{}#"))
+validlists = lambda: lists(validtext(), min_size=1)
+validdicts = lambda: dictionaries(keys=validtext(), values=validtext())
 # stop short of combining accents
 
 @given(validtext())
@@ -35,12 +34,13 @@ def test_form_constructor_and_method(form):
 #    I = Item(segmentation=segmentation)
 #    assert I.segmentation() == segmentation
 #
-#@given(validtext, validdicts)
-#def test_form_and_features_constructor_and_method(form, features):
-#    I = Item(form=form, features=features)
-#    assert I.form() == form
-#    assert I.features() == features
-#
+
+@given(validtext(), validdicts())
+def test_form_and_features_constructor_and_method(form, features):
+    I = Item(form=form, features=features)
+    assert I.form == form
+    assert I.features == features
+
 #@given(validlists, validdicts)
 #def test_segmentation_and_features_constructor_and_method(segmentation, features):
 #    I = Item(segmentation=segmentation, features=features)
