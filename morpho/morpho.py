@@ -1,133 +1,300 @@
-import six
-import re
-from itertools import chain, repeat
+from functools import total_ordering
 import pynini
-from .wrappers import FSM, SIGMA
+
+# Utility FSTs. We generate these once at import time, and we optimize them
+# because they'll be used frequently. This speeds up queries substantially.
+
+LETTER = pynini.union(*
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'")
+
+LETTER_STAR = LETTER.star.optimize()
+
+CONNECTOR = pynini.union(*"-")
+
+RH_SEPARATOR = pynini.union(*"$ ")
+LH_SEPARATOR = pynini.union(*"^ ")
+
+MORPH = pynini.union(
+            CONNECTOR + LETTER_STAR,
+            LETTER_STAR,
+            LETTER_STAR + CONNECTOR
+        ).optimize()
+
+LETTER_LIST = pynini.union(LETTER, " ").star.optimize() 
+
+FEATURES = pynini.union(LETTER, "(", ")", " ").star.optimize() 
 
 
-class Item(object):
-    def __init__(self, other=None, **kwargs):
-        if other:
-            if type(other) == type(self):
-                self._encoded = other._encoded
-                self._fsm = other._fsm
-            else:
-                self._encode_kwargs(form=other)
-                self._fsm = FSM(self._encoded)
-        else:
-            self._encode_kwargs(**kwargs)
-            self._fsm = FSM(self._encoded)
-        print(self._fsm)
+SIGMA = pynini.union(LETTER, "-", "(", ")", " ", "$", "^", "|").optimize()
 
-    def _encode_kwargs(self, **kwargs):
-        form = kwargs.get("form", None)
-        segmentation = kwargs.get("segmentation", None)
-        glosses = kwargs.get("glosses", None)
-        features = kwargs.get("features", None)
+SIGMA_STAR = SIGMA.star.optimize()
 
-        if form and (segmentation or glosses):
-            raise ValueError("Too many keyword arguments.")
+PARENTHESIZED = (
+        pynini.acceptor("(") + 
+        MORPH + 
+        pynini.acceptor(")")
+    ).optimize()
 
-        if form:
-            self._encoded = "#"+form
-        elif segmentation:
-            self._encode_segs_and_glosses(segmentation, glosses)
-        else:
-            self._encoded = "#"
 
-        self._encode_features(features)
+SEG_REWRITE = pynini.cdrewrite(
+        pynini.transducer("", PARENTHESIZED), "", RH_SEPARATOR, SIGMA_STAR).optimize()
 
-    def _encode_segs_and_glosses(self, segmentation, glosses):
-        glosslist = ["{"+gl+"}" for gl in glosses] if glosses else []
-        glosslist = chain(glosslist, repeat("{}"))
-        items = chain.from_iterable(zip(segmentation, glosslist))
-        self._encoded = "#" + ''.join(items)
+ADD_LEFT_PAREN = pynini.cdrewrite( 
+        pynini.transducer("", "("), LH_SEPARATOR, "", SIGMA_STAR).optimize()
 
-    def _encode_features(self, features):
-        if features:
-            featuresEncoded = ''.join(
-                    "{" + key + "=" + features[key] + "}"
-                    for key in sorted(features))
-            self._encoded = featuresEncoded + self._encoded
+ADD_RIGHT_PAREN = pynini.cdrewrite(
+        pynini.transducer("", ")"), "", RH_SEPARATOR, SIGMA_STAR).optimize()
+
+GLOSS_REWRITE = pynini.compose(
+        pynini.compose(ADD_LEFT_PAREN, ADD_RIGHT_PAREN),
+        pynini.cdrewrite(pynini.transducer("", MORPH), "", "(",
+            SIGMA_STAR)).optimize()
+
+def buildQuery(segmentation=None, gloss=None, features=None):
+    if segmentation is not None:
+        segAcceptor = "^" + toAcceptor(segmentation) + "$"
+        segQuery = (pynini.compose(
+                                segAcceptor, 
+                                SEG_REWRITE,
+                             ).project(project_output = True) + 
+                      FEATURES + "|").optimize()
+    else:
+        segQuery = SIGMA_STAR
+
+    if gloss is not None:
+        glossAcceptor = "^" + toAcceptor(gloss) + "$"
+        glossQuery = (pynini.compose(
+                                glossAcceptor,
+                                GLOSS_REWRITE,
+                            ).project(project_output = True) +
+                      FEATURES + "|").optimize()
+    else:
+        glossQuery = SIGMA_STAR
+
+    if features is not None:
+        featQuery = "^" + SIGMA_STAR + "$" + toAcceptor(features) + "|"
+    else:
+        featQuery = SIGMA_STAR
+
+    result = pynini.intersect(segQuery, glossQuery)
+    result = pynini.intersect(result, featQuery)
+    return result
+
+
+class Form(object):
+    def __init__(self, 
+            lemmaMorphemes=None,
+            lemmaSegmentation=None,
+            lemmaGloss=None, 
+            morphemes=None,
+            segmentation=None, 
+            gloss=None, 
+            features = None, 
+            **kwargs):
+
+        if lemmaMorphemes:
+            assert not lemmaSegmentation and not lemmaGloss
+            lemmaSegmentation, lemmaGloss = unzip(lemmaMorphemes)
+            lemmaSegmentation = list(lemmaSegmentation)
+            lemmaGloss = list(lemmaGloss)
+        if morphemes:
+            assert not segmentation and not gloss
+            segmentation, gloss = unzip(morphemes)
+            segmentation = list(segmentation)
+            gloss = list(gloss)
+        self.lemmaSegmentation = lemmaSegmentation or []
+        self.lemmaGloss = lemmaGloss or []
+        self.segmentation = segmentation or []
+        self.gloss = gloss or []
+        #self.features = {**features, **kwargs}
+        self.features = features or kwargs
+
+    @classmethod
+    def fromStrings(cls, top, bottom):
+        lemmaMorphemes, _ = breakFstString(top)
+        morphemes, features = breakFstString(bottom)
+        return cls(lemmaMorphemes=lemmaMorphemes,
+                   morphemes=morphemes,
+                   features=features)
+
+    def toStrings(self):
+        lemmaMorphemes = zip(self.lemmaSegmentation, self.lemmaGloss)
+        morphemes = zip(self.segmentation, self.gloss)
+        features = self.features
+        topString = makeFstString(lemmaMorphemes, features)
+        bottomString = makeFstString(morphemes, features)
+        return topString, bottomString
+        
+
+    @classmethod
+    def fromFst(cls, fst):
+        fst = fst.copy()                # We're going to destructively
+                                        # project it in a minute, so we need a
+                                        # copy.
+        bottomString = fst.stringify()
+        fst.project(project_output=False)
+        topString = fst.stringify()
+        return cls.fromStrings(top=topString, bottom=bottomString)
+
+
+    def toFst(self):
+        topString, bottomString = self.toStrings()
+        return pynini.transducer(topString, bottomString)
+
+
+    @total_ordering
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._key() == other._key()
+
+    @total_ordering
+    def __gt__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._key() > other._key()
+
+    def __str__(self):
+        return self.text
+
+    def __repr__(self):
+        return ('Form(segmentation={0}, gloss={1}, ' +
+                'lemmaSegmentation={2}, lemmaGloss={3}, ' + 
+                'features={4})').format(
+                        self.segmentation, 
+                        self.gloss, 
+                        self.lemmaSegmentation, 
+                        self.lemmaGloss, 
+                        self.features)
 
     @property
-    def sigma(self):
-        sigma = set()
-        isyms = self._fsm.input_symbols()
-        osyms = self._fsm.output_symbols()
-        for state in self._fsm.states():
-            for arc in self._fsm.arcs(state):
-                sigma |= {pynini_decode(isyms.find(arc.ilabel))}
-                sigma |= {pynini_decode(osyms.find(arc.olabel))}
-        return pynini.string_map(s for s in sigma if "\x00" not in s)
+    def morphemes(self):
+        return list(zip(self.segmentation, self.gloss))
 
     @property
-    def form(self):
-        return next(self.formFSM.keys())
+    def lemmaMorphemes(self):
+        return list(zip(self.lemmaSegmentation, self.lemmaGloss))
 
     @property
-    def segmentation(self):
-        asString = self.form
-        asList = re.split("{[^{}]*}", asString)
-        if asList[-1] == "":
-            asList.pop()
-        return asList
+    def text(self):
+        return "".join([s.strip("-") for s in self.segmentation])
 
     @property
-    def features(self):
-        asString = next(self.featureFSM.keys())
-        asList = asString.strip("{}").split("}{")
-        d = {}
-        for item in asList:
-            if "=" in item:
-                k, v = item.split("=")
-                d[k] = v
-        return d
+    def lemmaText(self):
+        return "".join([s.strip("-") for s in self.lemmaSegmentation])
 
-    morphemeGetter = (FSM(SIGMA).cross("").star() +
-                        FSM("#").cross("") +
-                        FSM(SIGMA).star())
+    def _key(self):
+        return self.text + " " + str(self.toStrings())
 
-    featureGetter = (FSM(SIGMA).star() +
-                        FSM("#").cross("") +
-                        FSM(SIGMA).cross("").star())
+def unzip(listOfPairs):
+    pairOfLists = tuple(zip(*listOfPairs))
+    if len(pairOfLists) == 1:
+        pairOfLists = [pairOfLists[0], ()]
+    return pairOfLists
 
-    formGetter = (~(FSM("{") | FSM("}")).star())
+def makeFstString(morphemes, features):
+    fItems = [(k, features[k]) for k in sorted(features)]
+    morphemeString = " ".join(["{}({})".format(segment, gloss)
+                                for segment, gloss in morphemes])
+    featureString = " ".join(["{}({})".format(feature, value)
+                                for feature, value in fItems])
+    totalString = "^" + morphemeString + "$" + featureString + "|"
+    return totalString
 
-    @property
-    def morphemeFSM(self):
-        return (self._fsm @ Item.morphemeGetter).project(side="bottom")
-    
-    @property
-    def featureFSM(self):
-        return (self._fsm @ Item.featureGetter).project(side="bottom")
-
-    @property
-    def formFSM(self):
-        return (self._fsm @ 
-                Item.morphemeGetter @ 
-                Item.formGetter.star()).project(side="bottom")
-
-    def __add__(self, other):
-        cls = type(self)
-        segmentation = self.segmentation() + other.segmentation()
-        glosses = self.glosses() + other.glosses()
-        features = self.features()
-        features.update(other.features())
-        return cls(segmentation=segmentation, glosses=glosses,
-                features=features)
-
-class Class(object):
-    def __init__(self, seq):
-        self._fsm = pynini.union(*(Item(s)._fsm for s in seq))
-        self._fsm.optimize() 
-
-    def __contains__(self, f):
-        product = pynini.compose(Item(f)._fsm, self._fsm)
-        paths = pynini.shortestpath(self._fsm, nshortest=1).paths()
-        return len(list(paths)) == 1
+def breakFstString(s):
+    morphemeString, featureString = s.strip("^").strip("|").split("$")
+    morphemes = [tuple(pair.strip(")").split("(")) 
+                    for pair in morphemeString.split(" ")]
+    features = [tuple(pair.strip(")").split("(")) 
+                    for pair in featureString.split(" ")]
+    if features == [('',)]:
+        features = {}
+    else:
+        features = {k: v for k, v in features}
+    return morphemes, features
 
 
 
+EM = pynini.EncodeMapper("standard", True, True)
+
+class Morphology(object):
+
+    def __init__(self, _fst=None):
+        self._fst = _fst or pynini.Fst()
+
+    def __eq__(self, other):
+        return pynini.equivalent(pynini.encode(self._fst, EM),
+                                 pynini.encode(other._fst, EM))
+
+    def add_form(self, form=None, **kwargs):
+        form = form or Form(**kwargs)
+        self._fst.union(form.toFst()).optimize()
+        # Optimize needed because path counting and equivalence testing
+        # break after union otherwise. This is annoying and might be a
+        # Pynini bug.
+
+    def add_rule(self, ifst):
+        self._fst = pynini.compose(self._fst, ifst)
+
+    def query(self, lemmaSegmentation=None, lemmaGloss=None, 
+            segmentation=None, gloss=None, features=None, 
+            **kwargs):
+        #features = {**features, **kwargs}
+        topQueryFst = buildQuery(segmentation=lemmaSegmentation,
+                                 gloss=lemmaGloss,
+                                 features=features)
+        bottomQueryFst = buildQuery(segmentation=segmentation,
+                                    gloss=gloss,
+                                    features=features)
+        result = pynini.compose(topQueryFst, self._fst)
+        result = pynini.compose(result, bottomQueryFst)
+        return [Form.fromStrings(top, bottom) 
+                for top, bottom, _ in result.paths()]
+
+class Condition(object):
+    def __init__(self, text=None, gloss=None, segmentation=None):
+        self._fst = query(text=text, gloss=gloss, segmentation=segmentation)
+
+    def then(self, ifst):
+        return pynini.compose(self._fst, ifst)
+
+def when(*args, **kwargs):
+    return Condition(*args, **kwargs)
+
+def toAcceptor(obj):
+    if obj is None:
+        return None
+    if isinstance(obj, pynini.Fst):
+        return obj
+    if isinstance(obj, list):
+        obj = " ".join(obj)
+    if isinstance(obj, dict):
+        obj = " ".join(sorted("{}({})".format(k,v) 
+            for k, v in obj.items()))
+    return pynini.acceptor(obj)
+
+def suffix(segmentation, gloss):
+    morphemes = zip(segmentation, gloss)
+    morphemes_string = " ".join("{0}({1})".format(t, g) for t, g in morphemes)
+    return (sigma_star + 
+            pynini.transducer("", morphemes_string) + 
+            pynini.acceptor("|") +
+            sigma_star)
+
+
+def ignoring(lhs, rhs):
+    target = lhs.copy()
+    for lhstate in lhs.states():
+        start_of_loop = target.num_states()
+        for rhstate in rhs.states():
+            target.add_state()
+            for arc in rhs.arcs(rhstate):
+                target.add_arc(start_of_loop+rhstate,
+                        pynini.Arc(arc.ilabel, arc.olabel, arc.weight,
+                            start_of_loop+arc.nextstate))
+            if rhs.final(rhstate) != pynini.Weight.Zero(rhs.weight_type()):
+                target.add_arc(start_of_loop+rhstate, pynini.Arc(0,0,0,lhstate))
+        target.add_arc(lhstate, pynini.Arc(0, 0, 0, start_of_loop))
+    return target
 
 
