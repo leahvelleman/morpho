@@ -1,0 +1,7 @@
+{
+  "test/morphology_test.py": true,
+  "test/morphology_test.py::test_form_equality": true,
+  "test/morphology_test.py::test_querying_an_added_form": true,
+  "test/morphology_test.py::test_suffix": true,
+  "test/test_form.py": true
+}
