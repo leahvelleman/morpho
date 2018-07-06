@@ -4,3 +4,6 @@
 .hypothesis
 *.pyc
 __pycache__
+.Python
+.pytest_cache
+
