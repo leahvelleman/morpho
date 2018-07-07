@@ -1,40 +1,4 @@
-import copy
-from hypothesis import given
-from hypothesis.strategies import lists, text, dictionaries, tuples, composite, integers
-from morpho.morpho import Form, letter, makeFstString
-
-def to_set(fst):
-    """ Convert an acceptor FST to a python set with the same contents. """
-    return set(a for a, _, _ in fst.paths())
-
-letters = to_set(letter)
-
-validtext = lambda: text(min_size=1, alphabet=letters)
-validlists = lambda: lists(validtext(), min_size=1)
-validDicts = lambda: dictionaries(keys=validtext(), values=validtext())
-
-@composite
-def glossPairLists(draw):
-    limit = draw(integers(min_value=1, max_value=20))
-    pairs = []
-    for _ in range(limit):
-        s = draw(text(alphabet=letters, min_size=1))
-        g = draw(text(alphabet=letters, min_size=1))
-        fixity = draw(integers(min_value=-1, max_value=1))
-        if fixity == -1:
-            s = s + "-"
-            g = g + "-"
-        elif fixity == 1:
-            s = "-" + s
-            g = "-" + g
-        pairs.append((s, g))
-    return pairs
-
-@composite
-def forms(draw):
-    return Form(morphemes=draw(glossPairLists()),
-                lemmaMorphemes=draw(glossPairLists()),
-                features=draw(validDicts()))
+from test.utils import *
 
 @given(glossPairLists(), glossPairLists(), validDicts())
 def test_morpheme_constructor(morphemes, lemmaMorphemes, features):
@@ -77,9 +41,35 @@ def test_constructor_equivalence(morphemes, lemmaMorphemes, features):
 def test_equality(f):
     assert f == copy.deepcopy(f)
 
+@given(forms(), forms())
+def test_inequality(f, g):
+    assume(f.morphemes != g.morphemes or 
+           f.lemmaMorphemes != g.lemmaMorphemes or
+           f.features != g.features)
+    assert f != g
+
+def test_specific_inequalities():
+    f = Form(segmentation=['a'], gloss=['a'], lemmaSegmentation=['a'], lemmaGloss=['a'], features={})
+    g = Form(segmentation=['a'], gloss=['b'], lemmaSegmentation=['a'], lemmaGloss=['a'], features={})
+    assert f != g
+    f = Form(segmentation=['4'], gloss=['4'], lemmaSegmentation=['4'], lemmaGloss=['4'], features={})
+    g = Form(segmentation=['4'], gloss=['4'], lemmaSegmentation=['4'], lemmaGloss=['4'], features={'4': '4'})
+    assert f != g
+
 @given(forms())
 def test_eval_repr_is_noop(f):
     assert eval(repr(f)) == f
+
+@given(forms())
+def test_form_from_strings(f):
+    topString = makeFstString(f.lemmaMorphemes, f.features)
+    bottomString = makeFstString(f.morphemes, f.features)
+    g = Form.fromStrings(top=topString, bottom=bottomString)
+    assert g == f
+
+@given(forms())
+def test_form_to_and_from_strings_is_noop(f):
+    assert Form.fromStrings(*f.toStrings()) == f
 
 @given(forms())
 def test_to_fst_bottom(f):
