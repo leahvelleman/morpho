@@ -1,3 +1,4 @@
+import pynini
 from functools import total_ordering
 
 class Form(object):

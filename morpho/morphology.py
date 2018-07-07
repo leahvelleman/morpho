@@ -14,6 +14,14 @@ class Morphology(object):
         return pynini.equivalent(pynini.encode(self._fst, EM),
                                  pynini.encode(other._fst, EM))
 
+    def __iter__(self):
+        paths = self._fst.paths()
+        return (Form.fromStrings(top, bottom) for top, bottom, _ in paths)
+
+    def __repr__(self):
+        formList = [form for form in self]
+        return "<Morphology: {}>".format(formList)
+
     def add_form(self, form=None, **kwargs):
         form = form or Form(**kwargs)
         self._fst.union(form.toFst()).optimize()

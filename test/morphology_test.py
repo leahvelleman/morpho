@@ -88,6 +88,17 @@ def test_multi_result_query(f, g, h):
         else:
             assert x not in result
 
+@given(forms(), forms(), forms())
+def test_iter_method(f, g, h):
+    assume(f != h and g != h)
+    m = Morphology()
+    m.add_form(f)
+    m.add_form(g)
+    result = list(iter(m))
+    assert f in result
+    assert g in result
+    assert h not in result
+
 
 # TODO:
 #   Query for plain text
@@ -96,13 +107,12 @@ def test_multi_result_query(f, g, h):
 #   Query with features passed as keyword arguments, not as a dict,
 #       or as both.
 
-#   Repository
-
-#   Tests for multi-return-value queries
+#   Tests for addRule
 
 #   Counterpart to query that returns one thing or fails
 
-#   good __str__ and __repr__ for Morphology objects
+#   Good __str__ for Morphology
+#   Test for Morphology __repr__? Is that important?
 
 #   HARD: can we come up with a good leipzig-friendly sound change 
 #       function that will delete hyphens or replace them with colons as
