@@ -2,7 +2,9 @@ import copy
 import pynini
 from hypothesis import given, assume
 from hypothesis.strategies import lists, text, dictionaries, tuples, composite, integers
-from morpho.morpho import Form, Morphology, LETTER, makeFstString, suffix
+from morpho.form import Form, makeFstString
+from morpho.morphology import Morphology
+from morpho.transducers import LETTER
 
 def to_set(fst):
     """ Convert an acceptor FST to a python set with the same contents. """
