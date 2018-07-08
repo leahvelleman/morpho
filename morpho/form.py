@@ -75,7 +75,13 @@ class Form(object):
         return self._key() > other._key()
 
     def __str__(self):
-        return self.text
+        ts, gs = zip(*self._alignedText())
+        return " ".join(ts) + "\n" + " ".join(gs) + "\n" + str(self.features)
+        
+    def _alignedText(self):
+        for t, g in self.morphemes:
+            maxL = max(len(t), len(g))
+            yield t.ljust(maxL), g.ljust(maxL)
 
     def __repr__(self):
         return ('Form(segmentation={0}, gloss={1}, ' +

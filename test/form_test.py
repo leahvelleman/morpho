@@ -41,6 +41,14 @@ def test_constructor_equivalence(morphemes, lemmaMorphemes, features):
 def test_equality(f):
     assert f == copy.deepcopy(f)
 
+@given(forms())
+def test_str_method(f):
+    print(str(f))
+    top, middle, bottom = str(f).split("\n")
+    assert top.split() == f.segmentation
+    assert middle.split() == f.gloss
+    assert eval(bottom) == f.features
+
 @given(forms(), forms())
 def test_inequality(f, g):
     assume(f.morphemes != g.morphemes or 

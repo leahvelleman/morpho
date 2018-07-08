@@ -22,14 +22,17 @@ class Morphology(object):
         formList = [form for form in self]
         return "<Morphology: {}>".format(formList)
 
-    def add_form(self, form=None, **kwargs):
+    def __str__(self):
+        return "\n\n".join(str(form) for form in self)
+
+    def addForm(self, form=None, **kwargs):
         form = form or Form(**kwargs)
         self._fst.union(form.toFst()).optimize()
         # Optimize needed because path counting and equivalence testing
         # break after union otherwise. This is annoying and might be a
         # Pynini bug.
 
-    def add_rule(self, ifst):
+    def addRule(self, ifst):
         self._fst = pynini.compose(self._fst, ifst)
 
     def query(self, lemmaSegmentation=None, lemmaGloss=None, 

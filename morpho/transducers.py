@@ -21,6 +21,8 @@ MORPH = pynini.union(
 
 LETTER_LIST = pynini.union(LETTER, " ").star.optimize() 
 
+MORPHEMES = pynini.union(LETTER, "(", ")", "-", " ").star.optimize()
+
 FEATURES = pynini.union(LETTER, "(", ")", " ").star.optimize() 
 
 
@@ -79,6 +81,7 @@ def buildQuery(segmentation=None, gloss=None, features=None):
     result = pynini.intersect(result, featQuery)
     return result
 
+
 def toAcceptor(obj):
     if obj is None:
         return None
@@ -91,4 +94,10 @@ def toAcceptor(obj):
             for k, v in obj.items()))
     return pynini.acceptor(obj)
 
-
+def suffix(segmentation=None, gloss=None):
+    segementation = segmentation or [""] * len(gloss)
+    gloss = gloss or [""] * len(segmentation)
+    morphemes = zip(segmentation, gloss)
+    morphemesString = " " + " ".join("{}({})".format(s, g) for s, g in morphemes)
+    SUFFIXER = pynini.transducer("", morphemesString)
+    return "^" + MORPHEMES + SUFFIXER + "$" + FEATURES + "|"
